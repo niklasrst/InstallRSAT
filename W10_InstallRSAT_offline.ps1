@@ -25,7 +25,7 @@ param(
 )
 
 $ErrorActionPreference="SilentlyContinue"
-$logFile = ('{0}\{1}.log' -f $env:Temp, [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name))
+$logFile = ('{0}\{1}.log' -f "C:\Windows\Logs", [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name))
 
 
 if ($install)
@@ -52,7 +52,7 @@ if ($install)
                 Write-Verbose -Verbose "All RSAT features seems to be installed already"
             }
             
-            $null = New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -Name "W10_InstallRSAT_offline" –Force
+            $null = New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -Name "W10_InstallRSAT_offline" -Force
             $null = New-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\W10_InstallRSAT_offline" -Name "Version" -PropertyType "String" -Value "1.0" -Force
             $null = New-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\W10_InstallRSAT_offline" -Name "Revision" -PropertyType "String" -Value "001" -Force
         } 
