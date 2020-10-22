@@ -24,66 +24,74 @@ param(
 	[switch]$uninstall
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference="SilentlyContinue"
+$logFile = ('{0}\{1}.log' -f $env:Temp, [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.MyCommand.Name))
 
 
 if ($install)
 {
-	try
-	{          
-        Write-Host "Installing from $PSScriptRoot" -ForegroundColor Yellow
-
-        $RSAT_FoD = Get-WindowsCapability –Online | Where-Object Name -like 'RSAT*'
-        if ($RSAT_FoD -ne $null) {
-            foreach ($Item in $RSAT_FoD) {
-                Write-Verbose -Verbose "Adding $Item to Windows"
-                try {
-                    Add-WindowsCapability -Online -Name $Item.name -Source "${PSScriptRoot}\FeaturesOnDemand" -LimitAccess
-                    }
-                catch [System.Exception]
-                    {
-                    Write-Verbose -Verbose "Failed to add $Item to Windows"
-                    Write-Warning -Message $_.Exception.Message
-                    }
+    Start-Transcript -path $logFile
+        try
+        {         
+            Write-Host "Installing from $PSScriptRoot" -ForegroundColor Yellow
+            $RSAT_FoD = Get-WindowsCapability –Online | Where-Object Name -like 'RSAT*'
+            if ($RSAT_FoD -ne $null) {
+                foreach ($Item in $RSAT_FoD) {
+                    Write-Verbose -Verbose "Adding $Item to Windows"
+                    try {
+                        Add-WindowsCapability -Online -Name $Item.name -Source "${PSScriptRoot}\FeaturesOnDemand" -LimitAccess
+                        }
+                    catch [System.Exception]
+                        {
+                        Write-Verbose -Verbose "Failed to add $Item to Windows"
+                        Write-Warning -Message $_.Exception.Message
+                        }
+                }
             }
-
+            else {
+                Write-Verbose -Verbose "All RSAT features seems to be installed already"
+            }
+            
+            $null = New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" -Name "W10_InstallRSAT_offline" –Force
+            $null = New-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\W10_InstallRSAT_offline" -Name "Version" -PropertyType "String" -Value "1.0" -Force
+            $null = New-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\W10_InstallRSAT_offline" -Name "Revision" -PropertyType "String" -Value "001" -Force
+        } 
+        catch
+        {
+            $PSCmdlet.WriteError($_)
         }
-        else {
-            Write-Verbose -Verbose "All RSAT features seems to be installed already"
-        }
-    }
-	catch
-	{
-		$PSCmdlet.WriteError($_)
-	}
+    Stop-Transcript
 }
 
 if ($uninstall)
 {
-	try
-	{
-          
-        $Uninstalled = Get-WindowsCapability -Online | Where-Object {$_.Name -like "Rsat*" -AND $_.State -eq "Installed" }# -AND $_.Name -notlike "Rsat.ServerManager*" -AND $_.Name -notlike "Rsat.GroupPolicy*" -AND $_.Name -notlike "Rsat.ActiveDirectory*"} 
-        if ($Uninstalled -ne $null) 
+    Start-Transcript -path $logFile
+        try
         {
-            foreach ($Item in $Uninstalled) 
+            $Uninstalled = Get-WindowsCapability -Online | Where-Object {$_.Name -like "Rsat*" -AND $_.State -eq "Installed" }# -AND $_.Name -notlike "Rsat.ServerManager*" -AND $_.Name -notlike "Rsat.GroupPolicy*" -AND $_.Name -notlike "Rsat.ActiveDirectory*"} 
+            if ($Uninstalled -ne $null) 
             {
-                $RsatItem = $Item.Name
-                Write-Verbose -Verbose "Uninstalling $RsatItem from Windows"
-                try 
+                foreach ($Item in $Uninstalled) 
                 {
-                    Remove-WindowsCapability -Name $RsatItem -Online
-                }
-                catch [System.Exception]
-                {
-                    Write-Verbose -Verbose "Failed to uninstall $RsatItem from Windows"
-                    Write-Warning -Message $_.Exception.Message
+                    $RsatItem = $Item.Name
+                    Write-Verbose -Verbose "Uninstalling $RsatItem from Windows"
+                    try 
+                    {
+                        Remove-WindowsCapability -Name $RsatItem -Online
+                    }
+                    catch [System.Exception]
+                    {
+                        Write-Verbose -Verbose "Failed to uninstall $RsatItem from Windows"
+                        Write-Warning -Message $_.Exception.Message
+                    }
                 }
             }
-        }       
-	}
-	catch
-	{
-		$PSCmdlet.WriteError($_)
-	}
+            
+            Remove-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\W10_InstallRSAT_offline" -Force -Recurse
+        }
+        catch
+        {
+            $PSCmdlet.WriteError($_)
+        }
+    Stop-Transcript
 }
